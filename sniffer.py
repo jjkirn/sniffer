@@ -251,35 +251,34 @@ def logo():
 # Process command line arguments
 def main(argv):
 	# Default values
-	show_data = False
-	show_segment = False
+	show_data = True
+	show_segment = True
 	show_logo = True
 
 	try:
-		opts, args = getopt.getopt(sys.argv[1:], "nhds",["help"])	
+		opts, args = getopt.getopt(sys.argv[1:], "lhds",["help"])	
 	except getopt.GetoptError as err:
 		print(err)
 		print('sniffer.py -h -d -l -s')
 		sys.exit(2)
 
 	for opt, arg in opts:
-		if opt == '-n':
+		if opt == '-l':
 			show_logo = False
 			
 		elif opt == '-h':
 			print('sniffer.py -h -d -s')
 			print('\t -h shows this help messages')
-			print('\t -n disables showing the sniffer logo')
-			print('\t -d enables showing extended data')
-			print('\t -s enables showing ethernet details')
+			print('\t -l disables showing the sniffer logo')
+			print('\t -d disables showing extended data')
+			print('\t -s disables showing ethernet details')
 			sys.exit()
 
 		elif opt == '-d':		
-			show_data = True
+			show_data = False
 
 		elif opt == '-s':	
-			show_segment = True
-			print('show_segment: {}'.format(show_segment))
+			show_segment = False
 	
 	if show_logo:
 		logo()
