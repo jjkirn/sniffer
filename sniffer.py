@@ -43,6 +43,8 @@ def collect(show_data, show_segment):
 			(version, length, nexthdr, hoplim, src, dst, ipv6data) = ipv6_packet(data)
 			#print(TAB_1 + '[+] IPv6')
 			print(TAB_1 + '[+] IPv6 Packet: ...............{} -> {}'.format(ipaddress.IPv6Address(src), ipaddress.IPv6Address(dst)))
+			if not show_segment:
+				continue
 			print(TAB_2 + 'Version: {}'.format(hex(version)))
 			print(TAB_2 + 'Length: {}'.format(hex(length)))
 			print(TAB_2 + 'Next Header: {}'.format(hex(nexthdr)))
@@ -55,7 +57,9 @@ def collect(show_data, show_segment):
 		elif eth_proto == 64911:
 			print(TAB_1 + '[+] IAP - Aruba Access Point')
 			# print(TAB_2 + 'Data:')
-			# print(format_multi_line(DATA_TAB_3, data))
+			# print(format_multi_line(DATA_TAB_3, data))if !show_segment:
+			if not show_segment:
+				continue
 			(magic, ver, iaptype, length, iapid, status, uptime, vcip, unknown, pvid) = iap_segment(data)
 			print(TAB_2 + 'Magic: {}'.format(hex(magic)))
 			print(TAB_2 + 'Version: {}'.format(ver))
@@ -73,6 +77,8 @@ def collect(show_data, show_segment):
 			(htype, ptype, hlen, plen, oper, sha, spa, tha, tpa) = arp_segment(data)
 			# (src_port, dest_port, length, data) = udp_segment(data)
 			print(TAB_1 + '[+] ARP Who has .....{} ? -> Tell {}'.format(tpa, spa))
+			if not show_segment:
+				continue
 			print(TAB_2 + 'Hardware Type: {}'.format(htype))
 			print(TAB_2 + 'Protocol Type: {}'.format(ptype))
 			print(TAB_2 + 'Hardware Length: {}'.format(hlen))
@@ -89,13 +95,15 @@ def collect(show_data, show_segment):
 		elif eth_proto == 8:
 			(version, header_length, ttl, proto, src, target, data) = ipv4_packet(data)
 			print(TAB_1 + '[+] IPv4 Packet: ...............{} -> {}'.format(src, target))
+			if not show_segment:
+				continue
 			print(TAB_2 + 'Version: {}, Header Length: {}, TTL: {}'.format(version, header_length, ttl))
 			# print(TAB_2 + 'Protocol: {}, Source: {}, Target: {}'.format(proto, src, target))
 			# Process the full IPv3 packet
 			ipv4(version, header_length, ttl, proto, src, target, data, show_data)
 
 		else:
-			print('[+] Unknown Ethernet Frame:'.format(eth_proto))
+			print('[+] Unknown Ethernet Frame Type:'.format(eth_proto))
 			print(TAB_2 + 'Data:')
 			print(format_multi_line(DATA_TAB_3, data))
 
@@ -248,10 +256,10 @@ def main(argv):
 	show_logo = True
 
 	try:
-		opts, args = getopt.getopt(sys.argv[1:], "hnds",["help"])	
+		opts, args = getopt.getopt(sys.argv[1:], "nhds",["help"])	
 	except getopt.GetoptError as err:
 		print(err)
-		print('sniffer.py -h -i -s')
+		print('sniffer.py -h -d -l -s')
 		sys.exit(2)
 
 	for opt, arg in opts:
@@ -261,16 +269,17 @@ def main(argv):
 		elif opt == '-h':
 			print('sniffer.py -h -d -s')
 			print('\t -h shows this help messages')
-			print('\t -l shows the logo')
-			print('\t -d enables show data')
-			print('\t -s enables show ethernet data')
+			print('\t -n disables showing the sniffer logo')
+			print('\t -d enables showing extended data')
+			print('\t -s enables showing ethernet details')
 			sys.exit()
 
-		elif opt in ("-d"):		
+		elif opt == '-d':		
 			show_data = True
 
-		elif opt in ("-s"):	
+		elif opt == '-s':	
 			show_segment = True
+			print('show_segment: {}'.format(show_segment))
 	
 	if show_logo:
 		logo()
@@ -278,6 +287,7 @@ def main(argv):
 		print('show_data now enabled')
 	if show_segment:
 		print('show_segment data now enabled')
+	# Start Processing frames/packets
 	collect(show_data, show_segment)
 
 # Start of Program	
