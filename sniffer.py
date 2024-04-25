@@ -23,15 +23,15 @@ DATA_TAB_3 = '\t\t\t  '
 DATA_TAB_4 = '\t\t\t\t  '
 
 # Collect ethernet frames and process them through python based sockets	
-def collect(show_data, show_segment):
-	print('Collect: [show_data: {}, show_segment: {}]'.format(show_data, show_segment))
+def collect(show_data, show_segment, show_arp):
+	print('Collect: [show_data: {}, show_segment: {}], show_arp: {}'.format(show_data, show_segment, show_arp))
 	conn = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(3))
 	frame_cnt = 0
 	while True:
 		frame_cnt += 1
 		raw_data, addr = conn.recvfrom(65536)
 		dest_mac, src_mac, eth_proto, data = ethernet_frame(raw_data)
-		print('\n[>] Ethernet Frame #{}: .....{} -> {}'.format(frame_cnt, src_mac, dest_mac))
+		print('\n[+] Ethernet II #{}: Src: {} -> Dst: {}'.format(frame_cnt, src_mac, dest_mac))
 		# print(TAB_1 +'Destination: {}, Source: {}, Protocol: {}'.format(dest_mac, src_mac, eth_proto))
 
 		print(TAB_1 + 'Ethernet Protocol: {} - ({})'.format(big2little(eth_proto), eth_proto))
@@ -59,7 +59,8 @@ def collect(show_data, show_segment):
 			# print(TAB_2 + 'Data:')
 			# print(format_multi_line(DATA_TAB_3, data))if !show_segment:
 			if not show_segment:
-				continue
+				continue  # exit loop
+
 			(magic, ver, iaptype, length, iapid, status, uptime, vcip, unknown, pvid) = iap_segment(data)
 			print(TAB_2 + 'Magic: {}'.format(hex(magic)))
 			print(TAB_2 + 'Version: {}'.format(ver))
@@ -73,34 +74,47 @@ def collect(show_data, show_segment):
 			print(TAB_2 + 'PVID: {}'.format(hex(pvid)))
 					
 		# Check for ARP (OK)
-		elif eth_proto == 1544:		
+		elif eth_proto == 1544:
+			if not show_arp:
+				continue  # exit loop
+				
 			(htype, ptype, hlen, plen, oper, sha, spa, tha, tpa) = arp_segment(data)
 			# (src_port, dest_port, length, data) = udp_segment(data)
 			print(TAB_1 + '[+] ARP Who has .....{} ? -> Tell {}'.format(tpa, spa))
-			if not show_segment:
+			if not show_segment: #exit loop
 				continue
-			print(TAB_2 + 'Hardware Type: {}'.format(htype))
-			print(TAB_2 + 'Protocol Type: {}'.format(ptype))
+				
+			print(TAB_2 + 'Hardware Type: 0x{:04x} - ({})'.format(htype, htype))
+			print(TAB_2 + 'Protocol Type: 0x{:04x} - ({})'.format(ptype, ptype))
 			print(TAB_2 + 'Hardware Length: {}'.format(hlen))
 			print(TAB_2 + 'Protocol Length: {}'.format(plen))
-			print(TAB_2 + 'Operation: {}'.format(oper))
+			if oper == 1:
+				print(TAB_2 + 'Operation - Request: 0x{:04x} - ({})'.format(oper, oper))
+			else:
+				print(TAB_2 + 'Operation - Reply: 0x{:04x} - ({})'.format(oper, oper))
 			print(TAB_2 + 'Sender Hardware Address: {}'.format(sha))
 			print(TAB_2 + 'Sender Protocol Address: {}'.format(spa))
 			print(TAB_2 + 'Target Hardware Address: {}'.format(tha))
 			print(TAB_2 + 'Target Protocol Address: {}'.format(tpa))
-#			print(TAB_2 + 'Data:')
-#			print(format_multi_line(DATA_TAB_3, data))
+#			if show_data:
+#				print(TAB_2 + 'Data:')
+#				print(format_multi_line(DATA_TAB_3, data))
+
 		
 		# Check for IPv4  -> 8 - (OK)
 		elif eth_proto == 8:
-			(version, header_length, ttl, proto, src, target, data) = ipv4_packet(data)
-			print(TAB_1 + '[+] IPv4 Packet: ...............{} -> {}'.format(src, target))
+#			(version, header_length, ttl, proto, src, target, data) = ipv4_packet(data)
+			(version, header_length, tos, length, packet_id, ttl, proto, chksum, src, dst, data) = ipv4_packet(data)
+
+			print(TAB_1 + '[+] IPv4 Packet: ...............{} -> {}'.format(src, dst))
 			if not show_segment:
 				continue
-			print(TAB_2 + 'Version: {}, Header Length: {}, TTL: {}'.format(version, header_length, ttl))
-			# print(TAB_2 + 'Protocol: {}, Source: {}, Target: {}'.format(proto, src, target))
-			# Process the full IPv3 packet
-			ipv4(version, header_length, ttl, proto, src, target, data, show_data)
+
+			print(TAB_2 + 'Protocol: {}, Source: {}, Target: {}'.format(hex(proto), src, dst))
+#			print(TAB_2 + 'Version: {}, Header Length: {}, TTL: {}'.format(version, header_length, ttl))
+			
+			# Process the full IPv4 packet
+			ipv4(version, header_length, tos, length, packet_id, ttl, proto, chksum, src, dst, data, show_data)
 
 		else:
 			print('[+] Unknown Ethernet Frame Type:'.format(eth_proto))
@@ -118,8 +132,14 @@ def get_mac_addr(bytes_addr):
 	return ':'.join(bytes_str).upper()
 
 # Process the full IPv4 packet	
-def ipv4(version, header_length, ttl, proto, src, target, data, show_data):
-	
+def ipv4(version, header_length, tos, length, packet_id, ttl, proto, chksum, src, dst, data, show_data):
+
+	print(TAB_2 + 'Version: {}, Header Length: {}, Type of Service: {}, Total Length: {}'.format(version, header_length, tos, length))
+	print(TAB_2 + 'Packet ID: {}'.format(packet_id))
+	print(TAB_2 + 'TTL: {}, IP Protocol: {}, Header Checksum: {}'.format(ttl, hex(proto), chksum))
+	print(TAB_2 + 'Source IP: {}, Destination IP: {}'.format(src, dst))
+#	print('*** proto: {} - ({})'.format(hex(proto), proto))
+
 	# ICMP (OK)	
 	if proto == 1: 
 		icmp_type, code, checksum, data = icmp_packet(data)
@@ -131,11 +151,15 @@ def ipv4(version, header_length, ttl, proto, src, target, data, show_data):
 			
 	# TCP (OK)
 	elif proto == 6:
-		(src_port, dest_port, sequence, acknowledgement, flag_urg, flag_ack, flag_psh, flag_rst, flag_syn, flag_fin, data) = tcp_segment(data)
+#		(src_port, dest_port, sequence, acknowledgement, flag_urg, flag_ack, flag_psh, flag_rst, flag_syn, flag_fin, data) = tcp_segment(data)
+		(src_port, dest_port, sequence, acknowledgement, flag_urg, flag_ack, flag_psh, flag_rst, flag_syn, flag_fin, window_size, checksum, urgent_ptr, data) = tcp_segment(data)
 		print(TAB_1 + '[+] TCP Segment: .......................{} -> {}'.format(src_port, dest_port))
 		print(TAB_2 + 'Sequence: {}, Acknowledgement: {}'.format(sequence, acknowledgement))
 		print(TAB_2 + 'Flags:')
 		print(TAB_3 + 'URG: {}, ACK: {}, PSH: {}, RST: {}, SYN: {}, FIN: {}'.format(flag_urg, flag_ack, flag_psh, flag_rst, flag_syn, flag_fin))
+		print(TAB_3 + 'Window Size: {}'.format(window_size))
+		print(TAB_3 + 'Checksum: {}'.format(hex(checksum)))
+		print(TAB_3 + 'Urgent Pointer: {}'.format(urgent_ptr))
 		if show_data:
 			print(TAB_2 + 'Data:')
 			print(format_multi_line(DATA_TAB_3, data))
@@ -146,7 +170,16 @@ def ipv4(version, header_length, ttl, proto, src, target, data, show_data):
 		print(TAB_1 + '[+] UDP Segment:')
 		print(TAB_2 + 'Source Port: {}, Destination Port: {}'.format(src_port, dest_port))
 		print(TAB_2 + 'Length: {}, Checksum: {}'.format(length, chksum))
-		if show_data:
+		
+		# Test for BJNP - 0x4D2D5345 (1294816069)
+		#bjnp, bjnp_code, bjnp_id, payload, length, seq_num, sess_id, bjnp_type = struct.unpack('! L B B B L L H B', data[:18])
+		bjnp, bjnp_code, bjnp_id, payload, length, seq_num, sess_id, bjnp_type = struct.unpack('! 4s B B B L L H B', data[:18])
+#		print('### BJNP: {}'.format(bjnp))
+		mybjnp = bytes('BJNP', 'utf-8')
+#		print('### myBJNP: {}'.format(mybjnp))
+		if bjnp == mybjnp:
+			print(TAB_3 + '[+] BJNP - Cannon Printer Protocol: {}'.format(bjnp))
+		elif show_data:
 			print(TAB_2 + 'Data:')
 			print(format_multi_line(DATA_TAB_3, data))
 				
@@ -162,9 +195,9 @@ def ipv4_packet(data):
 	version_header_length = data[0]
 	version = version_header_length >> 4
 	header_length = (version_header_length & 15) * 4
-	ttl, proto, src, target = struct.unpack('! 8x B B 2x 4s 4s', data[:20])
-	# return version, header_length, ttl, proto, ipv4(src), ipv4(target), data[header_length:]
-	return version, header_length, ttl, proto, ipaddress.IPv4Address(src), ipaddress.IPv4Address(target), data[header_length:]
+	
+	tos, length, packet_id, ttl, proto, chksum, src, dst = struct.unpack('! 1x B H H 2x B B H 4s 4s', data[:20])
+	return version, header_length, tos, length, packet_id, ttl, proto, chksum, ipaddress.IPv4Address(src), ipaddress.IPv4Address(dst), data[header_length:]
 	
 # Unpack the IPv6 packet details (OK)
 def ipv6_packet(data):
@@ -180,7 +213,7 @@ def icmp_packet(data):
 	
 # Unpack TCP segment details (OK) -> type 6
 def tcp_segment(data):
-	(src_port, dest_port, sequence, acknowledgement, offset_reserved_flags) = struct.unpack('! H H L L H', data[:14])
+	(src_port, dest_port, sequence, acknowledgement, offset_reserved_flags, window_size, checksum, urgent_ptr) = struct.unpack('! H H L L H H H H', data[:20])
 	offset = (offset_reserved_flags >> 12) * 4
 	flag_urg = (offset_reserved_flags & 32) >> 5
 	flag_ack = (offset_reserved_flags & 16) >> 4
@@ -188,7 +221,7 @@ def tcp_segment(data):
 	flag_rst = (offset_reserved_flags & 4) >> 2
 	flag_syn = (offset_reserved_flags & 2) >> 1
 	flag_fin = offset_reserved_flags & 1
-	return src_port, dest_port, sequence, acknowledgement, flag_urg, flag_ack, flag_psh, flag_rst, flag_syn, flag_fin, data[offset:]
+	return src_port, dest_port, sequence, acknowledgement, flag_urg, flag_ack, flag_psh, flag_rst, flag_syn, flag_fin, window_size, checksum, urgent_ptr, data[offset:]
 	
 # Unpack UDP segment details (OK)
 def udp_segment(data):
@@ -222,6 +255,12 @@ def format_multi_line(prefix, string, size=80):
 			size -= 1
 	return '\n'.join([prefix + line for line in textwrap.wrap(string, size)])
 
+# Formats multi-line ascii (OK)	
+def format_multi_ascii(prefix, bytes, size=80):
+	string = str(bytes, 'ascii')
+	for i in range(0, len(string), 80):
+		print('{}'.format(string[i:i+80]))
+		
 # Handle CTRL-C to exit gracefully
 def handler(signal_recieved, frame):
 	# Handle any cleanup here
@@ -254,12 +293,13 @@ def main(argv):
 	show_data = True
 	show_segment = True
 	show_logo = True
+	show_arp = False
 
 	try:
-		opts, args = getopt.getopt(sys.argv[1:], "lhds",["help"])	
+		opts, args = getopt.getopt(sys.argv[1:], "alhds",["help"])	
 	except getopt.GetoptError as err:
 		print(err)
-		print('sniffer.py -h -d -l -s')
+		print('sniffer.py -a -h -l -d -s')
 		sys.exit(2)
 
 	for opt, arg in opts:
@@ -268,6 +308,7 @@ def main(argv):
 			
 		elif opt == '-h':
 			print('sniffer.py -h -d -s')
+			print('\t -a enable arp messages')
 			print('\t -h shows this help messages')
 			print('\t -l disables showing the sniffer logo')
 			print('\t -d disables showing extended data')
@@ -279,15 +320,21 @@ def main(argv):
 
 		elif opt == '-s':	
 			show_segment = False
+			
+		elif opt == '-a':
+			show_arp = True
 	
 	if show_logo:
 		logo()
-	if show_data:
-		print('show_data now enabled')
-	if show_segment:
-		print('show_segment data now enabled')
+#	if show_data:
+#		print('show_data now enabled')
+#	if show_segment:
+#		print('show_segment data now enabled')
+#	if not show_arp:
+#		print('show_arp data not enabled')	
+		
 	# Start Processing frames/packets
-	collect(show_data, show_segment)
+	collect(show_data, show_segment, show_arp)
 
 # Start of Program	
 if __name__ == '__main__':
