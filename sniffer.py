@@ -75,14 +75,15 @@ def collect(show_data, show_segment, show_arp):
 					
 		# Check for ARP (OK)
 		elif eth_proto == 1544:
-			if not show_arp:
-				continue  # exit loop
 				
 			(htype, ptype, hlen, plen, oper, sha, spa, tha, tpa) = arp_segment(data)
 			# (src_port, dest_port, length, data) = udp_segment(data)
 			print(TAB_1 + '[+] ARP Who has .....{} ? -> Tell {}'.format(tpa, spa))
-			if not show_segment: #exit loop
-				continue
+			if not show_arp:  # Exit of you dont want arp detais
+				continue   # exit loop
+
+#			if not show_segment:
+#				continue  #exit loop
 				
 			print(TAB_2 + 'Hardware Type: 0x{:04x} - ({})'.format(htype, htype))
 			print(TAB_2 + 'Protocol Type: 0x{:04x} - ({})'.format(ptype, ptype))
@@ -171,14 +172,15 @@ def ipv4(version, header_length, tos, length, packet_id, ttl, proto, chksum, src
 		print(TAB_2 + 'Source Port: {}, Destination Port: {}'.format(src_port, dest_port))
 		print(TAB_2 + 'Length: {}, Checksum: {}'.format(length, chksum))
 		
-		# Test for BJNP - 0x4D2D5345 (1294816069)
-		#bjnp, bjnp_code, bjnp_id, payload, length, seq_num, sess_id, bjnp_type = struct.unpack('! L B B B L L H B', data[:18])
+		# Test for BJNP - 0x4D2D5345 (1294816069) - (Canon) BubbleJet Network Protocol -> for printers
+#		print('### data: {}'.format(data))		# For debug
 		bjnp, bjnp_code, bjnp_id, payload, length, seq_num, sess_id, bjnp_type = struct.unpack('! 4s B B B L L H B', data[:18])
-#		print('### BJNP: {}'.format(bjnp))
+#		print('### BJNP: {}'.format(bjnp))		# For debug
 		mybjnp = bytes('BJNP', 'utf-8')
-#		print('### myBJNP: {}'.format(mybjnp))
+#		print('### myBJNP: {}'.format(mybjnp))	# For debug
 		if bjnp == mybjnp:
-			print(TAB_3 + '[+] BJNP - Cannon Printer Protocol: {}'.format(bjnp))
+			bjnp_process(bjnp, bjnp_code, bjnp_id, payload, length, seq_num, sess_id, bjnp_type)
+
 		elif show_data:
 			print(TAB_2 + 'Data:')
 			print(format_multi_line(DATA_TAB_3, data))
@@ -188,6 +190,17 @@ def ipv4(version, header_length, tos, length, packet_id, ttl, proto, chksum, src
 		print(TAB_1 + 'Unknown IPv4 Packet:')
 		print(format_multi_line(DATA_TAB_2, data))
 		
+	return(True)
+
+# Process the full BJNP data	
+def bjnp_process(bjnp, bjnp_code, bjnp_id, payload, length, seq_num, sess_id, bjnp_type):
+	print(TAB_2 + '[+] BJNP - Cannon Printer Protocol: {}'.format(bjnp))
+	print(TAB_3 + 'Code: {}'.format(bjnp_code))
+	print(TAB_3 + 'ID : {}'.format(bjnp_id))
+#	print(TAB_3 + 'Payload: {}'.format(payload))
+#	print(TAB_3 + 'Sequence Number: {}'.format(seq_num))
+#	print(TAB_3 + 'Session ID: {}'.format(sess_id))
+#	print(TAB_3 + 'Length: {}'.format(bjnp_type))
 	return(True)
 
 # Unpack the IPv4 packet details (OK)
@@ -307,8 +320,8 @@ def main(argv):
 			show_logo = False
 			
 		elif opt == '-h':
-			print('sniffer.py -h -d -s')
-			print('\t -a enable arp messages')
+			print('sniffer.py -a -h -l -d -s')
+			print('\t -a enable arp details')
 			print('\t -h shows this help messages')
 			print('\t -l disables showing the sniffer logo')
 			print('\t -d disables showing extended data')
@@ -338,7 +351,7 @@ def main(argv):
 
 # Start of Program	
 if __name__ == '__main__':
-	# Tell Python to run the handler() function when SIGINT is recieved
+	# Tell Python to run the handler() function when SIGINT is received
 	signal(SIGINT, handler)
 	main(sys.argv[1:])
 		
