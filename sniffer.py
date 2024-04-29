@@ -195,12 +195,14 @@ def ipv4(version, header_length, tos, length, packet_id, ttl, proto, chksum, src
 # Process the full BJNP data	
 def bjnp_process(bjnp, bjnp_code, bjnp_id, payload, length, seq_num, sess_id, bjnp_type):
 	print(TAB_2 + '[+] BJNP - Cannon Printer Protocol: {}'.format(bjnp))
-	print(TAB_3 + 'Code: {}'.format(bjnp_code))
 	print(TAB_3 + 'ID : {}'.format(bjnp_id))
+	print(TAB_3 + 'Type: {}'.format(bjnp_type))
+	print(TAB_3 + 'Code: {}'.format(bjnp_code))
+
 #	print(TAB_3 + 'Payload: {}'.format(payload))
 #	print(TAB_3 + 'Sequence Number: {}'.format(seq_num))
 #	print(TAB_3 + 'Session ID: {}'.format(sess_id))
-#	print(TAB_3 + 'Length: {}'.format(bjnp_type))
+
 	return(True)
 
 # Unpack the IPv4 packet details (OK)
