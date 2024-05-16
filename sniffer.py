@@ -10,7 +10,7 @@ import netifaces
 # Run this program as sudo !!!
 # Packet Sniffer based on python3 sockets - JKirn - 4/17/24
 #
-# Based on:
+# loosely based on:
 # Python Network Packet Sniffer Tutorials
 # https://www.youtube.com/playlist?list=PL6gx4Cwl9DGDdduy0IPDDHYnUx66Vc4ed
 
@@ -25,20 +25,26 @@ DATA_TAB_3 = '\t\t\t  '
 DATA_TAB_4 = '\t\t\t\t  '
 
 # Collect ethernet frames and process them through python based sockets	
-def collect(show_data, show_segment, show_arp):
+def collect(show_data, show_segment, show_arp, show_interfaces):
 	print('Collect: [show_data: {}, show_segment: {}], show_arp: {}'.format(show_data, show_segment, show_arp))
 	conn = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(3))
 
-	# Try to bind to a specific interface
-	interface_selected = select_interface()
-	try: #enp0s3
-		conn.setsockopt(socket.SOL_SOCKET, 25, str(interface_selected+'\0').encode('utf-8'))
-		# conn.setsockopt(socket.SOL_SOCKET, 25, struct.pack("%ds" %(len("enp0s3")+1,),"ens18"))
-	except socket.error as err:
-		print('Exception', err)
-		sys.exit()
+	print('show_interfaces: {}'.format(show_interfaces))
 
-	frame_cnt = 0
+	# Try to bind to a specific interface, defaulted off as it is not compatible with redirection (>)
+	if show_interfaces:
+		# Prompt for interface
+		interface_selected = select_interface()
+		# Enable the selected interface
+		try:
+			conn.setsockopt(socket.SOL_SOCKET, 25, str(interface_selected+'\0').encode('utf-8'))
+
+		except socket.error as err:
+			print('Exception', err)
+			sys.exit()		
+
+	# Start main loop
+	frame_cnt = 0  # initialize frame count
 	while True:
 		frame_cnt += 1
 		raw_data, addr = conn.recvfrom(65536)
@@ -324,8 +330,6 @@ def select_interface():
 	cnt = 1	
 	# Showing interfaces 
 	for interface in interfaces: 
-#		print(interface) 
-#		interface_list.append(interface)
 		my_dict[cnt] = interface
 		cnt += 1
 
@@ -335,6 +339,7 @@ def select_interface():
 		i += 1
  
 	print("Enter the number that corresponds to the interface you want to select:")
+	# get input from user and check for bad input
 	try:
 		num1 = int(input())
 	except:
@@ -356,36 +361,40 @@ def main(argv):
 	show_segment = True
 	show_logo = True
 	show_arp = False
+	show_interfaces = False
 
 	try:
-		opts, args = getopt.getopt(sys.argv[1:], "alhds",["help"])	
+		opts, args = getopt.getopt(sys.argv[1:], "adhils",["help"])	
 	except getopt.GetoptError as err:
 		print(err)
-		print('sniffer.py -a -h -l -d -s')
+		print('sniffer.py -a -d -h -i -l -s')
 		sys.exit(2)
 
 	for opt, arg in opts:
+		if opt == '-a':
+			show_arp = True
+
+		if opt == '-d':		
+			show_data = False
+
+		if opt == '-i':
+			show_interfaces = True
+			
 		if opt == '-l':
 			show_logo = False
+
+		if opt == '-s':	
+			show_segment = False
 			
 		elif opt == '-h':
 			print('sniffer.py -a -h -l -d -s')
 			print('\t -a enable arp details')
-			print('\t -h shows this help messages')
-			print('\t -l disables showing the sniffer logo')
 			print('\t -d disables showing extended data')
+			print('\t -h shows this help messages')
+			print('\t -i enables interface selection')
+			print('\t -l disables showing the sniffer logo')
 			print('\t -s disables showing ethernet details')
 			sys.exit()
-
-		elif opt == '-d':		
-			show_data = False
-
-		elif opt == '-s':	
-			show_segment = False
-			
-		elif opt == '-a':
-			show_arp = True
-	
 	if show_logo:
 		logo()
 #	if show_data:
@@ -393,10 +402,12 @@ def main(argv):
 #	if show_segment:
 #		print('show_segment data now enabled')
 #	if not show_arp:
-#		print('show_arp data not enabled')	
+#		print('show_arp data not enabled')
+#	if show_interfaces:
+#		print('show_interfaces now enabled')
 		
 	# Start Processing frames/packets
-	collect(show_data, show_segment, show_arp)
+	collect(show_data, show_segment, show_arp, show_interfaces)
 
 # Start of Program	
 if __name__ == '__main__':
