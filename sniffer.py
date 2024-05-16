@@ -5,6 +5,8 @@ import ipaddress
 import sys, getopt
 from signal import signal, SIGINT
 from sys import exit
+import netifaces
+
 # Run this program as sudo !!!
 # Packet Sniffer based on python3 sockets - JKirn - 4/17/24
 #
@@ -26,6 +28,16 @@ DATA_TAB_4 = '\t\t\t\t  '
 def collect(show_data, show_segment, show_arp):
 	print('Collect: [show_data: {}, show_segment: {}], show_arp: {}'.format(show_data, show_segment, show_arp))
 	conn = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(3))
+
+	# Try to bind to a specific interface
+	interface_selected = select_interface()
+	try: #enp0s3
+		conn.setsockopt(socket.SOL_SOCKET, 25, str(interface_selected+'\0').encode('utf-8'))
+		# conn.setsockopt(socket.SOL_SOCKET, 25, struct.pack("%ds" %(len("enp0s3")+1,),"ens18"))
+	except socket.error as err:
+		print('Exception', err)
+		sys.exit()
+
 	frame_cnt = 0
 	while True:
 		frame_cnt += 1
@@ -35,9 +47,9 @@ def collect(show_data, show_segment, show_arp):
 		# print(TAB_1 +'Destination: {}, Source: {}, Protocol: {}'.format(dest_mac, src_mac, eth_proto))
 
 		print(TAB_1 + 'Ethernet Protocol: {} - ({})'.format(big2little(eth_proto), eth_proto))
-		
+
 		# print('*** eth_proto: {}'.format(eth_proto))
-		
+
 		# Check for IPv6 (0x86dd)
 		if eth_proto == 56710:
 			(version, length, nexthdr, hoplim, src, dst, ipv6data) = ipv6_packet(data)
@@ -301,6 +313,41 @@ def logo():
 	print('░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░')
 	print(' by J.Kirn 4.17.24')
 	print()
+
+def select_interface():
+	# Getting interfaces 
+	interfaces = netifaces.interfaces() 
+
+	interface_list = []
+	my_dict = {}
+
+	cnt = 1	
+	# Showing interfaces 
+	for interface in interfaces: 
+#		print(interface) 
+#		interface_list.append(interface)
+		my_dict[cnt] = interface
+		cnt += 1
+
+	i = 1	
+	for key in my_dict:
+		print('[{}] - {}'.format( i, my_dict.get(i)))
+		i += 1
+ 
+	print("Enter the number that corresponds to the interface you want to select:")
+	try:
+		num1 = int(input())
+	except:
+		print('You did not enter a valid integer selection')
+		exit()
+
+	print('You selected: {}'.format(num1))
+	if num1 in my_dict.keys():
+		print('Valid key {} - value {}'.format(num1, my_dict.get(num1)))
+	else:
+		print('InValid key {}'.format(num1))
+		exit()
+	return my_dict.get(num1)
 
 # Process command line arguments
 def main(argv):
